@@ -13,40 +13,11 @@ export default defineConfig(({ mode }) => ({
     outDir: "dist/spa",
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          // Vendor chunks
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
-            return 'vendor';
-          }
-          if (id.includes('node_modules/react-router-dom')) {
-            return 'router';
-          }
-          if (id.includes('node_modules/@tanstack/react-query')) {
-            return 'query';
-          }
-          if (id.includes('node_modules/lucide-react') || 
-              id.includes('node_modules/class-variance-authority') ||
-              id.includes('node_modules/clsx') ||
-              id.includes('node_modules/tailwind-merge')) {
-            return 'ui';
-          }
-          if (id.includes('node_modules/@radix-ui')) {
-            return 'radix';
-          }
-          if (id.includes('node_modules/next-themes')) {
-            return 'theme';
-          }
-          if (id.includes('node_modules/sonner')) {
-            return 'toast';
-          }
-          // Page chunks
-          if (id.includes('/pages/')) {
-            return 'pages';
-          }
-          // Shared components
-          if (id.includes('/shared/')) {
-            return 'shared';
-          }
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          router: ['react-router-dom'],
+          query: ['@tanstack/react-query'],
+          ui: ['lucide-react', 'class-variance-authority', 'clsx', 'tailwind-merge'],
         },
       },
     },
