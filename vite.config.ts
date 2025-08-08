@@ -16,7 +16,6 @@ export default defineConfig(({ mode }) => ({
         manualChunks: {
           vendor: ['react', 'react-dom'],
           router: ['react-router-dom'],
-          query: ['@tanstack/react-query'],
           ui: ['lucide-react', 'class-variance-authority', 'clsx', 'tailwind-merge'],
         },
       },
