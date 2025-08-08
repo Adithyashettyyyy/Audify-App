@@ -6,8 +6,7 @@ const getApiBaseUrl = () => {
   }
   
   // In production, use the Render server URL
-  // You'll need to replace this with your actual Render app URL
-  return import.meta.env.VITE_API_BASE_URL || 'https://your-render-app-name.onrender.com';
+  return import.meta.env.VITE_API_BASE_URL || 'https://audify-app-1.onrender.com';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
