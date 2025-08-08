@@ -170,14 +170,30 @@ class SpotifyService {
       console.error(`❌ Spotify API request failed for ${endpoint}:`, {
         status: error?.response?.status,
         statusText: error?.response?.statusText,
-        data: error?.response?.data?.error
+        data: error?.response?.data?.error || error?.response?.data
       });
+      
+      // Provide more specific error messages
+      if (error?.response?.status === 401) {
+        console.error("Authentication failed. Please check your Spotify credentials.");
+      } else if (error?.response?.status === 404) {
+        console.error("Endpoint not found. This might require user authentication.");
+      } else if (error?.response?.status === 429) {
+        console.error("Rate limit exceeded. Please try again later.");
+      }
+      
       throw error;
     }
   }
 
   // Featured Playlists (using search fallback since browse endpoint requires user auth)
   async getFeaturedPlaylists(limit = 20, offset = 0) {
+    // Check if we have valid credentials
+    if (!this.clientId || !this.clientSecret) {
+      console.log("⚠️ Spotify credentials not configured, using fallback data");
+      return this.getFallbackFeaturedPlaylists(limit, offset);
+    }
+
     try {
       // Try the browse endpoint first
       return await this.makeRequest("/browse/featured-playlists", {
@@ -189,118 +205,349 @@ class SpotifyService {
       console.log(
         "Browse endpoint failed, using search fallback for featured playlists",
       );
-      const searchResult = await this.makeRequest("/search", {
-        q: "top hits",
-        type: "playlist",
+      try {
+        const searchResult = await this.makeRequest("/search", {
+          q: "top hits",
+          type: "playlist",
+          limit,
+          offset,
+        });
+
+        // Format to match expected structure
+        return {
+          message: "Popular Playlists",
+          playlists: searchResult.playlists || { items: [] },
+        };
+      } catch (searchError) {
+        console.log("Search fallback also failed, using hardcoded fallback");
+        return this.getFallbackFeaturedPlaylists(limit, offset);
+      }
+    }
+  }
+
+  private getFallbackFeaturedPlaylists(limit = 20, offset = 0) {
+    const fallbackPlaylists = [
+      {
+        id: "37i9dQZF1DXcBWIGoYBM5M",
+        name: "Today's Top Hits",
+        description: "The hottest tracks right now.",
+        images: [{ url: "https://i.scdn.co/image/ab67706f000000027ea4d505212b9de1668a5e82" }],
+        owner: { display_name: "Spotify" },
+        tracks: { total: 50 }
+      },
+      {
+        id: "37i9dQZF1DX5Ejj0EkURtP",
+        name: "All Out 2010s",
+        description: "The biggest songs of the 2010s.",
+        images: [{ url: "https://i.scdn.co/image/ab67706f00000002ca5a7517156021292f5663a4" }],
+        owner: { display_name: "Spotify" },
+        tracks: { total: 100 }
+      },
+      {
+        id: "37i9dQZF1DX4WYpdgoIcn6",
+        name: "Chill Hits",
+        description: "Kick back to the best new and recent chill hits.",
+        images: [{ url: "https://i.scdn.co/image/ab67706f00000002b0fe40a6e1692822f5a9d8f1" }],
+        owner: { display_name: "Spotify" },
+        tracks: { total: 75 }
+      },
+      {
+        id: "37i9dQZF1DX7KNKjOK0o75",
+        name: "Have a Great Day!",
+        description: "Feel good with this positively timeless playlist!",
+        images: [{ url: "https://i.scdn.co/image/ab67706f00000002b0fe40a6e1692822f5a9d8f1" }],
+        owner: { display_name: "Spotify" },
+        tracks: { total: 60 }
+      },
+      {
+        id: "37i9dQZF1DX3Ogo9pLvDmC",
+        name: "Peaceful Piano",
+        description: "Relax and indulge with beautiful piano pieces.",
+        images: [{ url: "https://i.scdn.co/image/ab67706f00000002b0fe40a6e1692822f5a9d8f1" }],
+        owner: { display_name: "Spotify" },
+        tracks: { total: 40 }
+      },
+      {
+        id: "37i9dQZF1DX5Vy6DFOcx00",
+        name: "Butter",
+        description: "Smooth tracks to help you glide through life.",
+        images: [{ url: "https://i.scdn.co/image/ab67706f00000002b0fe40a6e1692822f5a9d8f1" }],
+        owner: { display_name: "Spotify" },
+        tracks: { total: 55 }
+      },
+      {
+        id: "37i9dQZF1DX4WYpdgoIcn6",
+        name: "Chill Hits",
+        description: "Kick back to the best new and recent chill hits.",
+        images: [{ url: "https://i.scdn.co/image/ab67706f00000002b0fe40a6e1692822f5a9d8f1" }],
+        owner: { display_name: "Spotify" },
+        tracks: { total: 75 }
+      },
+      {
+        id: "37i9dQZF1DX7KNKjOK0o75",
+        name: "Have a Great Day!",
+        description: "Feel good with this positively timeless playlist!",
+        images: [{ url: "https://i.scdn.co/image/ab67706f00000002b0fe40a6e1692822f5a9d8f1" }],
+        owner: { display_name: "Spotify" },
+        tracks: { total: 60 }
+      }
+    ];
+
+    const startIndex = offset;
+    const endIndex = Math.min(startIndex + limit, fallbackPlaylists.length);
+    const items = fallbackPlaylists.slice(startIndex, endIndex);
+
+    return {
+      message: "Featured Playlists",
+      playlists: {
+        items,
+        total: fallbackPlaylists.length,
         limit,
         offset,
-      });
-
-      // Format to match expected structure
-      return {
-        message: "Popular Playlists",
-        playlists: searchResult.playlists || { items: [] },
-      };
-    }
+        href: null,
+        next: null,
+        previous: null
+      }
+    };
   }
 
   // New Releases (using search fallback)
   async getNewReleases(limit = 20, offset = 0) {
+    // Check if we have valid credentials
+    if (!this.clientId || !this.clientSecret) {
+      console.log("⚠️ Spotify credentials not configured, using fallback data");
+      return this.getFallbackNewReleases(limit, offset);
+    }
+
     try {
       return await this.makeRequest("/browse/new-releases", { limit, offset });
     } catch (error) {
       console.log(
         "Browse endpoint failed, using search fallback for new releases",
       );
-      const searchResult = await this.makeRequest("/search", {
-        q: "year:2024",
-        type: "album",
+      try {
+        const searchResult = await this.makeRequest("/search", {
+          q: "year:2024",
+          type: "album",
+          limit,
+          offset,
+        });
+
+        return {
+          message: "New Releases",
+          albums: searchResult.albums || { items: [] },
+        };
+      } catch (searchError) {
+        console.log("Search fallback also failed, using hardcoded fallback");
+        return this.getFallbackNewReleases(limit, offset);
+      }
+    }
+  }
+
+  private getFallbackNewReleases(limit = 20, offset = 0) {
+    const fallbackAlbums = [
+      {
+        id: "1",
+        name: "Midnights",
+        artists: [{ name: "Taylor Swift" }],
+        release_date: "2022-10-21",
+        album_type: "album",
+        total_tracks: 13,
+        images: [{ url: "https://i.scdn.co/image/ab67616d0000b273bb54dde68cd23e2a268ae0f5" }]
+      },
+      {
+        id: "2",
+        name: "SOS",
+        artists: [{ name: "SZA" }],
+        release_date: "2022-12-09",
+        album_type: "album",
+        total_tracks: 23,
+        images: [{ url: "https://i.scdn.co/image/ab67616d0000b273bb54dde68cd23e2a268ae0f5" }]
+      },
+      {
+        id: "3",
+        name: "Un Verano Sin Ti",
+        artists: [{ name: "Bad Bunny" }],
+        release_date: "2022-05-06",
+        album_type: "album",
+        total_tracks: 23,
+        images: [{ url: "https://i.scdn.co/image/ab67616d0000b273bb54dde68cd23e2a268ae0f5" }]
+      },
+      {
+        id: "4",
+        name: "Renaissance",
+        artists: [{ name: "Beyoncé" }],
+        release_date: "2022-07-29",
+        album_type: "album",
+        total_tracks: 16,
+        images: [{ url: "https://i.scdn.co/image/ab67616d0000b273bb54dde68cd23e2a268ae0f5" }]
+      },
+      {
+        id: "5",
+        name: "Harry's House",
+        artists: [{ name: "Harry Styles" }],
+        release_date: "2022-05-20",
+        album_type: "album",
+        total_tracks: 13,
+        images: [{ url: "https://i.scdn.co/image/ab67616d0000b273bb54dde68cd23e2a268ae0f5" }]
+      },
+      {
+        id: "6",
+        name: "= (Equals)",
+        artists: [{ name: "Ed Sheeran" }],
+        release_date: "2021-10-29",
+        album_type: "album",
+        total_tracks: 14,
+        images: [{ url: "https://i.scdn.co/image/ab67616d0000b273bb54dde68cd23e2a268ae0f5" }]
+      }
+    ];
+
+    const startIndex = offset;
+    const endIndex = Math.min(startIndex + limit, fallbackAlbums.length);
+    const items = fallbackAlbums.slice(startIndex, endIndex);
+
+    return {
+      message: "New Releases",
+      albums: {
+        items,
+        total: fallbackAlbums.length,
         limit,
         offset,
-      });
-
-      return {
-        message: "New Releases",
-        albums: searchResult.albums || { items: [] },
-      };
-    }
+        href: null,
+        next: null,
+        previous: null
+      }
+    };
   }
 
   // Categories (using search fallback)
   async getCategories(limit = 50, offset = 0) {
+    // Check if we have valid credentials
+    if (!this.clientId || !this.clientSecret) {
+      console.log("⚠️ Spotify credentials not configured, using fallback data");
+      return this.getFallbackCategories(limit, offset);
+    }
+
     try {
       return await this.makeRequest("/browse/categories", { limit, offset });
     } catch (error) {
       console.log(
         "Browse endpoint failed, using hardcoded categories fallback",
       );
-      // Return popular music categories
-      const categories = [
-        {
-          id: "pop",
-          name: "Pop",
-          icons: [
-            {
-              url: "https://i.scdn.co/image/ab67fb8200005caf1e1d1f54b58a0090a0b65ba4",
-            },
-          ],
-        },
-        {
-          id: "rock",
-          name: "Rock",
-          icons: [
-            {
-              url: "https://i.scdn.co/image/ab67fb8200005caf41829e61a9cb8ec5e8d9a6e8",
-            },
-          ],
-        },
-        {
-          id: "hip-hop",
-          name: "Hip Hop",
-          icons: [
-            {
-              url: "https://i.scdn.co/image/ab67fb8200005caf29bc8cd5a8b8e1e3b816d8b2",
-            },
-          ],
-        },
-        {
-          id: "electronic",
-          name: "Electronic",
-          icons: [
-            {
-              url: "https://i.scdn.co/image/ab67fb8200005caf90b72e63d71e8b7c636b6c7a",
-            },
-          ],
-        },
-        {
-          id: "indie",
-          name: "Indie",
-          icons: [
-            {
-              url: "https://i.scdn.co/image/ab67fb8200005caf27c3b8b6ed7c90c1b5da8c13",
-            },
-          ],
-        },
-        {
-          id: "classical",
-          name: "Classical",
-          icons: [
-            {
-              url: "https://i.scdn.co/image/ab67fb8200005caf69b5bc8e71d4c17e0fd7f2b1",
-            },
-          ],
-        },
-      ];
-
-      return {
-        categories: {
-          items: categories.slice(offset, offset + limit),
-          total: categories.length,
-          limit,
-          offset,
-        },
-      };
+      return this.getFallbackCategories(limit, offset);
     }
+  }
+
+  private getFallbackCategories(limit = 50, offset = 0) {
+    // Return popular music categories
+    const categories = [
+      {
+        id: "pop",
+        name: "Pop",
+        icons: [
+          {
+            url: "https://i.scdn.co/image/ab67fb8200005caf1e1d1f54b58a0090a0b65ba4",
+          },
+        ],
+      },
+      {
+        id: "rock",
+        name: "Rock",
+        icons: [
+          {
+            url: "https://i.scdn.co/image/ab67fb8200005caf41829e61a9cb8ec5e8d9a6e8",
+          },
+        ],
+      },
+      {
+        id: "hip-hop",
+        name: "Hip Hop",
+        icons: [
+          {
+            url: "https://i.scdn.co/image/ab67fb8200005caf29bc8cd5a8b8e1e3b816d8b2",
+          },
+        ],
+      },
+      {
+        id: "electronic",
+        name: "Electronic",
+        icons: [
+          {
+            url: "https://i.scdn.co/image/ab67fb8200005caf90b72e63d71e8b7c636b6c7a",
+          },
+        ],
+      },
+      {
+        id: "indie",
+        name: "Indie",
+        icons: [
+          {
+            url: "https://i.scdn.co/image/ab67fb8200005caf27c3b8b6ed7c90c1b5da8c13",
+          },
+        ],
+      },
+      {
+        id: "classical",
+        name: "Classical",
+        icons: [
+          {
+            url: "https://i.scdn.co/image/ab67fb8200005caf69b5bc8e71d4c17e0fd7f2b1",
+          },
+        ],
+      },
+      {
+        id: "jazz",
+        name: "Jazz",
+        icons: [
+          {
+            url: "https://i.scdn.co/image/ab67fb8200005caf69b5bc8e71d4c17e0fd7f2b1",
+          },
+        ],
+      },
+      {
+        id: "country",
+        name: "Country",
+        icons: [
+          {
+            url: "https://i.scdn.co/image/ab67fb8200005caf69b5bc8e71d4c17e0fd7f2b1",
+          },
+        ],
+      },
+      {
+        id: "r-n-b",
+        name: "R&B",
+        icons: [
+          {
+            url: "https://i.scdn.co/image/ab67fb8200005caf69b5bc8e71d4c17e0fd7f2b1",
+          },
+        ],
+      },
+      {
+        id: "latin",
+        name: "Latin",
+        icons: [
+          {
+            url: "https://i.scdn.co/image/ab67fb8200005caf69b5bc8e71d4c17e0fd7f2b1",
+          },
+        ],
+      }
+    ];
+
+    const startIndex = offset;
+    const endIndex = Math.min(startIndex + limit, categories.length);
+    const items = categories.slice(startIndex, endIndex);
+
+    return {
+      categories: {
+        items,
+        total: categories.length,
+        limit,
+        offset,
+        href: null,
+        next: null,
+        previous: null
+      },
+    };
   }
 
   // Category Playlists
